@@ -9,8 +9,8 @@ import openpyxl
 import pandas as pd
 import pytest
 
-from src.bcra_pagos_minoristas_xlsx_to_parquet.config import AppConfig
-from src.bcra_pagos_minoristas_xlsx_to_parquet.models import (
+from bcra_pagos_minoristas_xlsx_to_parquet.config import AppConfig
+from bcra_pagos_minoristas_xlsx_to_parquet.models import (
     DiscoveredFile,
     DiscoveryResult,
 )
