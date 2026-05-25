@@ -1,0 +1,21 @@
+[source]
+url = "https://www.bcra.gob.ar/informe-de-pagos-minoristas"
+match_rules = ["\\.xlsx$"]
+mode = "all"
+
+[download]
+output_dir = "data/raw"
+retries = 3
+timeout_seconds = 30
+
+[parser]
+engine = "polars"
+
+[normalization]
+aliases = {}
+
+[storage]
+format = "parquet"
+output_dir = "data/curated"
+partition_by = []
+mode = "append"
