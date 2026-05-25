@@ -5,7 +5,7 @@ Gracias por interesarte en contribuir.
 ## Cómo empezar
 
 1. Instala dependencias con `uv sync`.
-2. Ejecuta las pruebas con `uv run pytest`.
+2. Ejecuta las pruebas con `uv run python -m pytest`.
 3. Mantén los cambios pequeños y enfocados.
 
 ## Criterios generales
