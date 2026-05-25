@@ -109,7 +109,7 @@ Comandos:
 Las pruebas deben ser deterministas y no depender de endpoints en vivo.
 
 ```bash
-uv run pytest
+uv run python -m pytest
 ```
 
 ## Estado del proyecto
