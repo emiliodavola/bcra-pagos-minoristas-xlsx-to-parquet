@@ -2,11 +2,11 @@ from __future__ import annotations
 
 from datetime import datetime, timezone
 from pathlib import Path
+from typing import TYPE_CHECKING, Literal, cast
 
 import httpx
 import pandas as pd
 import polars as pl
-from typing import TYPE_CHECKING
 
 from .config import AppConfig
 from .discovery import discover_files, sort_candidates
@@ -48,7 +48,9 @@ def run_fetch(config: AppConfig, *, client: httpx.Client | None = None) -> dict:
 
 def run_parse(config: AppConfig, *, input_path: Path | None = None) -> ParsedDataset:
     path = input_path or _latest_xlsx(config.download.output_dir)
-    parsed = parse_workbook(path, engine=config.parser.engine)
+    parsed = parse_workbook(
+        path, engine=cast(Literal["polars", "pandas"], config.parser.engine)
+    )
     log_event(_LOGGER, "pipeline.parse.completed", input_path=str(path))
     return parsed
 
@@ -116,9 +118,9 @@ def _storage_request(config: AppConfig, normalized) -> StorageRequest:
     return StorageRequest(
         dataset=normalized,
         output_path=config.storage.output_dir,
-        format=config.storage.format,
+        format=cast(Literal["parquet", "delta"], config.storage.format),
         partition_by=config.storage.partition_by,
-        mode=config.storage.mode,
+        mode=cast(Literal["append", "overwrite"], config.storage.mode),
     )
 
 
