@@ -1,0 +1,104 @@
+# Python-generated files
+__pycache__/
+*.py[co]
+*$py.class
+
+# Distribution / packaging
+build/
+dist/
+wheels/
+pip-wheel-metadata/
+*.egg-info/
+
+# Virtual environments
+.venv/
+venv/
+env/
+ENV/
+
+# Pytest / test output
+.pytest_cache/
+
+# C extensions
+*.so
+*.pyd
+
+# Installer logs
+pip-log.txt
+
+# Unit test / coverage
+.coverage
+.coverage.*
+coverage.xml
+htmlcov/
+
+# MyPy
+.mypy_cache/
+
+# Pyre
+.pyre/
+
+# Byte-compiled / optimized
+__pycache__/
+
+# IDEs and editors
+.vscode/
+.idea/
+*.sublime-workspace
+*.sublime-project
+
+# OS files
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Jupyter
+.ipynb_checkpoints/
+
+# Environment / secrets
+.env
+.env.*
+secrets.env
+credentials.json
+
+# Logs
+*.log
+logs/
+
+# Temporary files
+*.tmp
+*.swp
+
+# Build artifacts
+*.egg
+*.egg-info/
+
+# Virtual env and packaging caches
+.cache/
+__pycache__/
+
+# Documentation
+docs/_build/
+
+# Sphinx doctrees
+.doctrees/
+
+# tox / nox
+.tox/
+.nox/
+
+# SQLite DBs
+*.db
+*.sqlite3
+
+# Application instance
+instance/
+
+# Celery
+celerybeat-schedule
+
+# Node
+node_modules/
+
+# Data raw (ignore large raw inputs by default)
+data/
