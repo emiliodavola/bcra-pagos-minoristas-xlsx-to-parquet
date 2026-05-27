@@ -115,8 +115,12 @@ def sample_normalized_data() -> pd.DataFrame:
             "concepto": ["cheques", "transferencias", "tarjetas"],
             "cantidad": [100, 200, 150],
             "monto_total": [10000.50, 25000.75, 15000.25],
-            "periodo": ["2024-05-01", "2024-05-01", "2024-05-01"],
-            "period_boundary": ["month_end", "month_end", "month_end"],
+            "fecha_original": [
+                "2024-05-17",
+                "2024-05-17",
+                "2024-05-17",
+            ],
+            "fecha": ["2024-05-01", "2024-05-01", "2024-05-01"],
             "ingested_at": [
                 "2024-05-25T10:00:00Z",
                 "2024-05-25T10:00:00Z",

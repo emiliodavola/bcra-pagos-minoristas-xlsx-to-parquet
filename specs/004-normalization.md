@@ -31,7 +31,7 @@ class NormalizedDataset:
 # Requirements
 
 ## N1
-Column names must be lowercase snake_case.
+Column names must be lowercase snake_case and must strip accents.
 
 ## N2
 Column names must be unique.
@@ -55,7 +55,10 @@ Normalization must be deterministic.
 Sheet names must be preserved.
 
 ## N9
-If a normalized `fecha` column exists, add `period_boundary` with `MS` (month start) or `ME` (month end) based on the date values.
+If a date column exists, preserve the source value in `fecha_original` and create `fecha` as the first day of the month.
+
+## N10
+Rows without date and without values at the end of a sheet must be dropped.
 
 ---
 
