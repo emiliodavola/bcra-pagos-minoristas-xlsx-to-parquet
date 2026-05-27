@@ -37,7 +37,9 @@ def parse_workbook(
         headers = _ensure_unique_headers(headers)
         data = raw.iloc[data_start:].copy()
         data.columns = headers
-        data = data.replace(r"^\s*$", pd.NA, regex=True)
+        for column in data.columns:
+            if data[column].dtype == object:
+                data[column] = data[column].map(_blank_string_to_na)
         data = data.infer_objects(copy=False).dropna(how="all")
         data = data.reset_index(drop=True)
 
@@ -160,6 +162,12 @@ def _normalize_header_cell(value: object) -> str | None:
         return None
     text = str(value).strip()
     return text or None
+
+
+def _blank_string_to_na(value: object) -> object:
+    if isinstance(value, str) and not value.strip():
+        return pd.NA
+    return value
 
 
 def _to_polars(data: pd.DataFrame) -> pl.DataFrame:
