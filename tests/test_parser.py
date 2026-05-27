@@ -8,7 +8,7 @@ def test_parser_detects_header_row(tmp_path) -> None:
         [
             [None, None],
             ["Fecha", "Valor"],
-            ["2024-01-01", 10],
+            [pd.Timestamp("2024-01-01"), 10],
         ]
     )
     path = tmp_path / "sample.xlsx"
@@ -76,3 +76,27 @@ def test_parser_uniquifies_headers(tmp_path) -> None:
 
     assert columns[0] == "Tarjetas Un pago Cantidad"
     assert columns[1] == "Tarjetas Un pago Cantidad_2"
+
+
+def test_parser_drops_trailing_sparse_row_and_null_column(tmp_path) -> None:
+    raw = pd.DataFrame(
+        [
+            ["Saldos en fondos comunes ri pspcp", None, None],
+            ["Saldo", "Monto nominal", None],
+            [100, 200, None],
+            [None, None, 5],
+        ]
+    )
+    path = tmp_path / "sparse_footer.xlsx"
+    raw.to_excel(path, header=False, index=False)
+
+    parsed = parse_workbook(path, engine="pandas")
+    result = parsed.sheets["Sheet1"]
+
+    assert parsed.metadata.header_row_index["Sheet1"] == 0
+    assert parsed.metadata.column_counts["Sheet1"] == 2
+    assert list(result.columns) == [
+        "Saldos en fondos comunes ri pspcp Saldo",
+        "Saldos en fondos comunes ri pspcp Monto nominal",
+    ]
+    assert len(result) == 1

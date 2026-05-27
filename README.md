@@ -24,6 +24,15 @@ El pipeline sigue esta secuencia:
 4. Normalizer: aplica reglas de normalización y metadatos de ingesta.
 5. Storage: escribe salidas en data/curated.
 
+## Branching
+
+El proyecto usa Gitflow.
+
+- **Ramas persistentes:** `main` y `dev`
+- **Ramas no persistentes:** `feature/*`, `release/*`, `hotfix/*` y `bugfix/*`
+
+Las ramas temporales se crean para trabajo acotado y se eliminan al integrar el cambio.
+
 ## Estructura del repositorio
 
 - src/bcra_pagos_minoristas_xlsx_to_parquet: paquete principal.

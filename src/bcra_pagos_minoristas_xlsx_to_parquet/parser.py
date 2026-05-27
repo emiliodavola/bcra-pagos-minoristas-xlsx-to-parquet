@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from datetime import date, datetime
 from pathlib import Path
-from typing import Literal
+from typing import Any, Literal
 
 import pandas as pd
 import polars as pl
@@ -37,8 +37,13 @@ def parse_workbook(
         headers = _ensure_unique_headers(headers)
         data = raw.iloc[data_start:].copy()
         data.columns = headers
-        data = data.replace(r"^\s*$", pd.NA, regex=True)
-        data = data.infer_objects(copy=False).dropna(how="all")
+        for column in data.columns:
+            if data[column].dtype == object:
+                data[column] = data[column].map(_blank_string_to_na)
+        data = data.infer_objects(copy=False)
+        data, _ = _drop_trailing_sparse_rows(data)
+        data = data.dropna(axis=1, how="all")
+        data = data.dropna(how="all")
         data = data.reset_index(drop=True)
 
         if engine == "polars":
@@ -52,7 +57,7 @@ def parse_workbook(
 
         sheets[sheet] = dataframe
         row_counts[sheet] = len(dataframe)
-        column_counts[sheet] = len(headers)
+        column_counts[sheet] = len(dataframe.columns)
 
     metadata = ParsingMetadata(
         sheet_names=list(sheets.keys()),
@@ -107,8 +112,7 @@ def _row_is_header(row: pd.Series) -> bool:
     ]
     if not values:
         return False
-    text_count = sum(1 for value in values if isinstance(value, str))
-    return (text_count / len(values)) >= 0.6
+    return not any(_is_data_like_value(value) for value in values)
 
 
 def _build_combined_headers(rows: list[pd.Series]) -> list[str]:
@@ -162,6 +166,23 @@ def _normalize_header_cell(value: object) -> str | None:
     return text or None
 
 
+def _blank_string_to_na(value: object) -> object:
+    if isinstance(value, str) and not value.strip():
+        return pd.NA
+    return value
+
+
+def _drop_trailing_sparse_rows(df: pd.DataFrame) -> tuple[pd.DataFrame, int]:
+    if df.empty:
+        return df, 0
+    trimmed = df.copy()
+    dropped = 0
+    while not trimmed.empty and _row_is_sparse_noise(trimmed.iloc[-1]):
+        trimmed = trimmed.iloc[:-1].copy()
+        dropped += 1
+    return trimmed, dropped
+
+
 def _to_polars(data: pd.DataFrame) -> pl.DataFrame:
     try:
         return pl.from_pandas(data, include_index=False)
@@ -209,3 +230,29 @@ def _stringify_value(value: object) -> str | None:
     if isinstance(value, (datetime, date)):
         return value.isoformat()
     return str(value)
+
+
+def _row_is_sparse_noise(row: pd.Series) -> bool:
+    non_empty = [value for value in row.tolist() if not _is_blank_value(value)]
+    return len(non_empty) <= 1
+
+
+def _is_blank_value(value: Any) -> bool:
+    if value is None:
+        return True
+    if isinstance(value, str):
+        return not value.strip()
+    try:
+        return bool(pd.isna(value))
+    except Exception:
+        return False
+
+
+def _is_data_like_value(value: Any) -> bool:
+    if isinstance(value, (datetime, date, pd.Timestamp)):
+        return True
+    if isinstance(value, bool):
+        return False
+    if isinstance(value, (int, float)):
+        return True
+    return False

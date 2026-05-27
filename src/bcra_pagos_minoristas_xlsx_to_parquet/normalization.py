@@ -73,8 +73,9 @@ def _normalize_pandas(
     renamed.columns = new_columns
     renamed = renamed.convert_dtypes()
     renamed = renamed.replace(r"^\s*$", pd.NA, regex=True)
+    renamed, dropped_rows = _drop_trailing_blank_rows_pandas(renamed)
 
-    renamed, mapping, dropped_rows = _normalize_fecha_pandas(renamed, mapping)
+    renamed, mapping = _normalize_fecha_pandas(renamed, mapping)
     report["schema"] = {k: str(v) for k, v in renamed.dtypes.items()}
     report["date_columns"] = {
         "source": (
@@ -96,7 +97,8 @@ def _normalize_polars(
     new_columns, mapping, report = _build_column_mapping(df.columns, aliases=aliases)
     renamed = df.clone()
     renamed.columns = new_columns
-    renamed, mapping, dropped_rows = _normalize_fecha_polars(renamed, mapping)
+    renamed, dropped_rows = _drop_trailing_blank_rows_polars(renamed)
+    renamed, mapping = _normalize_fecha_polars(renamed, mapping)
     report["schema"] = {k: str(v) for k, v in renamed.schema.items()}
     report["date_columns"] = {
         "source": (
@@ -180,12 +182,12 @@ def _ensure_unique(values: list[str]) -> list[str]:
 
 def _normalize_fecha_pandas(
     df: pd.DataFrame, mapping: dict[str, str]
-) -> tuple[pd.DataFrame, dict[str, str], int]:
+) -> tuple[pd.DataFrame, dict[str, str]]:
     if (
         _DATE_SOURCE_COLUMN not in df.columns
         and _DATE_ORIGINAL_COLUMN not in df.columns
     ):
-        return df, mapping, 0
+        return df, mapping
     if _DATE_SOURCE_COLUMN in df.columns and _DATE_ORIGINAL_COLUMN in df.columns:
         raise ValueError(
             "Ambiguous date columns: fecha and fecha_original already exist."
@@ -207,21 +209,20 @@ def _normalize_fecha_pandas(
     original = original.dt.tz_convert(None)
     frame[_DATE_ORIGINAL_COLUMN] = original
     frame[_DATE_SOURCE_COLUMN] = original.dt.to_period("M").dt.to_timestamp()
-    frame, dropped_rows = _drop_trailing_blank_rows_pandas(frame)
     mapping.setdefault(_DATE_SOURCE_COLUMN, _DATE_SOURCE_COLUMN)
     if _DATE_ORIGINAL_COLUMN not in mapping.values():
         mapping[_DATE_ORIGINAL_COLUMN] = _DATE_ORIGINAL_COLUMN
-    return frame, mapping, dropped_rows
+    return frame, mapping
 
 
 def _normalize_fecha_polars(
     df: pl.DataFrame, mapping: dict[str, str]
-) -> tuple[pl.DataFrame, dict[str, str], int]:
+) -> tuple[pl.DataFrame, dict[str, str]]:
     if (
         _DATE_SOURCE_COLUMN not in df.columns
         and _DATE_ORIGINAL_COLUMN not in df.columns
     ):
-        return df, mapping, 0
+        return df, mapping
     if _DATE_SOURCE_COLUMN in df.columns and _DATE_ORIGINAL_COLUMN in df.columns:
         raise ValueError(
             "Ambiguous date columns: fecha and fecha_original already exist."
@@ -243,11 +244,10 @@ def _normalize_fecha_polars(
     frame = frame.with_columns(
         pl.col(_DATE_ORIGINAL_COLUMN).dt.truncate("1mo").alias(_DATE_SOURCE_COLUMN)
     )
-    frame, dropped_rows = _drop_trailing_blank_rows_polars(frame)
     mapping.setdefault(_DATE_SOURCE_COLUMN, _DATE_SOURCE_COLUMN)
     if _DATE_ORIGINAL_COLUMN not in mapping.values():
         mapping[_DATE_ORIGINAL_COLUMN] = _DATE_ORIGINAL_COLUMN
-    return frame, mapping, dropped_rows
+    return frame, mapping
 
 
 def _ensure_polars_datetime(df: pl.DataFrame, column: str) -> pl.DataFrame:
@@ -288,22 +288,14 @@ def _drop_trailing_blank_rows_polars(df: pl.DataFrame) -> tuple[pl.DataFrame, in
 
 
 def _row_is_blank_pandas(row: pd.Series) -> bool:
-    if not _is_blank_value(row.get(_DATE_ORIGINAL_COLUMN)):
-        return False
-    for column, value in row.items():
-        if column == _DATE_ORIGINAL_COLUMN:
-            continue
+    for _, value in row.items():
         if not _is_blank_value(value):
             return False
     return True
 
 
 def _row_is_blank_polars(row: dict[str, Any]) -> bool:
-    if not _is_blank_value(row.get(_DATE_ORIGINAL_COLUMN)):
-        return False
-    for column, value in row.items():
-        if column == _DATE_ORIGINAL_COLUMN:
-            continue
+    for value in row.values():
         if not _is_blank_value(value):
             return False
     return True

@@ -76,3 +76,27 @@ def test_normalization_applies_aliases() -> None:
     ]
     assert normalized.sheets["sheet"]["fecha_original"][0] == pd.Timestamp("2024-01-01")
     assert normalized.sheets["sheet"]["fecha"][0] == pd.Timestamp("2024-01-01")
+
+
+def test_normalization_drops_trailing_blank_rows_without_fecha() -> None:
+    df = pl.DataFrame(
+        {
+            "concepto": ["pago", None],
+            "monto": [100, None],
+        }
+    )
+    metadata = ParsingMetadata(
+        sheet_names=["sheet"],
+        row_counts={"sheet": 2},
+        column_counts={"sheet": 2},
+        inferred_types={"sheet": {"concepto": "str", "monto": "int64"}},
+        header_row_index={"sheet": 0},
+    )
+    parsed = ParsedDataset(sheets={"sheet": df}, metadata=metadata)
+
+    normalized = normalize_dataset(parsed)
+    result = normalized.sheets["sheet"]
+
+    assert list(result.columns) == ["concepto", "monto"]
+    assert len(result) == 1
+    assert normalized.dropped_rows["sheet"] == 1
