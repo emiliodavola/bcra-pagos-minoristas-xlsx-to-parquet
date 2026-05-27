@@ -3,6 +3,7 @@ from __future__ import annotations
 import hashlib
 import json
 import re
+import unicodedata
 from typing import Any
 
 import pandas as pd
@@ -12,6 +13,8 @@ from .logging_utils import get_logger, log_event
 from .models import NormalizedDataset, ParsedDataset
 
 _LOGGER = get_logger(__name__)
+_DATE_SOURCE_COLUMN = "fecha"
+_DATE_ORIGINAL_COLUMN = "fecha_original"
 
 
 def normalize_dataset(
@@ -28,10 +31,14 @@ def normalize_dataset(
 
     for sheet, dataframe in parsed.sheets.items():
         if isinstance(dataframe, pl.DataFrame):
-            normalized, mapping, report = _normalize_polars(dataframe, aliases=aliases)
+            normalized, mapping, report, dropped = _normalize_polars(
+                dataframe, aliases=aliases
+            )
             schema[sheet] = {k: str(v) for k, v in normalized.schema.items()}
         elif isinstance(dataframe, pd.DataFrame):
-            normalized, mapping, report = _normalize_pandas(dataframe, aliases=aliases)
+            normalized, mapping, report, dropped = _normalize_pandas(
+                dataframe, aliases=aliases
+            )
             schema[sheet] = {k: str(v) for k, v in normalized.dtypes.items()}
         else:
             raise ValueError("Unsupported dataframe type for normalization.")
@@ -39,7 +46,7 @@ def normalize_dataset(
         normalized_sheets[sheet] = normalized
         column_mapping[sheet] = mapping
         row_counts[sheet] = len(normalized)
-        dropped_rows[sheet] = 0
+        dropped_rows[sheet] = dropped
         schema_report[sheet] = report
 
     result = NormalizedDataset(
@@ -58,98 +65,49 @@ def _normalize_pandas(
     df: pd.DataFrame,
     *,
     aliases: dict[str, list[str]] | None = None,
-) -> tuple[pd.DataFrame, dict[str, str], dict[str, Any]]:
+) -> tuple[pd.DataFrame, dict[str, str], dict[str, Any], int]:
     new_columns, mapping, report = _build_column_mapping(
         list(df.columns), aliases=aliases
     )
     renamed = df.copy()
     renamed.columns = new_columns
     renamed = renamed.convert_dtypes()
+    renamed = renamed.replace(r"^\s*$", pd.NA, regex=True)
 
-    for column in renamed.columns:
-        if pd.api.types.is_datetime64_any_dtype(renamed[column]):
-            renamed[column] = _normalize_datetime_series(renamed[column])
-        if pd.api.types.is_numeric_dtype(renamed[column]):
-            renamed[column] = pd.to_numeric(renamed[column], errors="coerce")
-
-    renamed = _add_period_boundary_pandas(renamed)
-    renamed = renamed.where(pd.notna(renamed), None)
+    renamed, mapping, dropped_rows = _normalize_fecha_pandas(renamed, mapping)
     report["schema"] = {k: str(v) for k, v in renamed.dtypes.items()}
-    return renamed, mapping, report
+    report["date_columns"] = {
+        "source": (
+            _DATE_SOURCE_COLUMN if _DATE_SOURCE_COLUMN in renamed.columns else None
+        ),
+        "original": (
+            _DATE_ORIGINAL_COLUMN if _DATE_ORIGINAL_COLUMN in renamed.columns else None
+        ),
+    }
+    report["dropped_trailing_rows"] = dropped_rows
+    return renamed, mapping, report, dropped_rows
 
 
 def _normalize_polars(
     df: pl.DataFrame,
     *,
     aliases: dict[str, list[str]] | None = None,
-) -> tuple[pl.DataFrame, dict[str, str], dict[str, Any]]:
+) -> tuple[pl.DataFrame, dict[str, str], dict[str, Any], int]:
     new_columns, mapping, report = _build_column_mapping(df.columns, aliases=aliases)
     renamed = df.clone()
     renamed.columns = new_columns
-    for column, dtype in renamed.schema.items():
-        if dtype == pl.Datetime:
-            renamed = renamed.with_columns(pl.col(column).dt.replace_time_zone("UTC"))
-        if dtype == pl.Date:
-            renamed = renamed.with_columns(pl.col(column).cast(pl.Datetime))
-    renamed = _add_period_boundary_polars(renamed)
+    renamed, mapping, dropped_rows = _normalize_fecha_polars(renamed, mapping)
     report["schema"] = {k: str(v) for k, v in renamed.schema.items()}
-    return renamed, mapping, report
-
-
-def _normalize_datetime_series(series: pd.Series) -> pd.Series:
-    if series.dt.tz is None:
-        return series.dt.tz_localize("UTC")
-    return series.dt.tz_convert("UTC")
-
-
-def _add_period_boundary_pandas(df: pd.DataFrame) -> pd.DataFrame:
-    if "fecha" not in df.columns or "period_boundary" in df.columns:
-        return df
-    series = df["fecha"]
-    if not pd.api.types.is_datetime64_any_dtype(series):
-        series = pd.to_datetime(series, errors="coerce")
-        df = df.copy()
-        df["fecha"] = series
-    if series.isna().all():
-        return df
-    boundary = pd.Series(pd.NA, index=series.index, dtype="string")
-    boundary[series.dt.is_month_start] = "MS"
-    boundary[series.dt.is_month_end] = "ME"
-    df["period_boundary"] = boundary
-    return df
-
-
-def _add_period_boundary_polars(df: pl.DataFrame) -> pl.DataFrame:
-    if "fecha" not in df.columns or "period_boundary" in df.columns:
-        return df
-    df = _ensure_polars_fecha_datetime(df)
-    fecha = pl.col("fecha")
-    boundary = (
-        pl.when(fecha.is_null())
-        .then(None)
-        .when(fecha.dt.month_start() == fecha)
-        .then(pl.lit("MS"))
-        .when(fecha.dt.month_end() == fecha)
-        .then(pl.lit("ME"))
-        .otherwise(None)
-        .alias("period_boundary")
-    )
-    return df.with_columns(boundary)
-
-
-def _ensure_polars_fecha_datetime(df: pl.DataFrame) -> pl.DataFrame:
-    dtype = df.schema.get("fecha")
-    if dtype is None:
-        return df
-    if dtype == pl.Datetime:
-        return df
-    if dtype == pl.Date:
-        return df.with_columns(pl.col("fecha").cast(pl.Datetime))
-    if dtype == pl.Utf8:
-        return df.with_columns(
-            pl.col("fecha").str.strptime(pl.Datetime, strict=False).alias("fecha")
-        )
-    return df
+    report["date_columns"] = {
+        "source": (
+            _DATE_SOURCE_COLUMN if _DATE_SOURCE_COLUMN in renamed.columns else None
+        ),
+        "original": (
+            _DATE_ORIGINAL_COLUMN if _DATE_ORIGINAL_COLUMN in renamed.columns else None
+        ),
+    }
+    report["dropped_trailing_rows"] = dropped_rows
+    return renamed, mapping, report, dropped_rows
 
 
 def _build_column_mapping(
@@ -200,7 +158,9 @@ def _schema_fingerprint(columns: list[str]) -> str:
 
 
 def _snake_case(name: str) -> str:
-    value = re.sub(r"[^A-Za-z0-9]+", "_", name.strip().lower())
+    normalized = unicodedata.normalize("NFKD", name)
+    ascii_text = normalized.encode("ascii", "ignore").decode("ascii")
+    value = re.sub(r"[^A-Za-z0-9]+", "_", ascii_text.strip().lower())
     value = re.sub(r"_+", "_", value).strip("_")
     return value or "column"
 
@@ -216,3 +176,145 @@ def _ensure_unique(values: list[str]) -> list[str]:
         else:
             result.append(f"{value}_{count}")
     return result
+
+
+def _normalize_fecha_pandas(
+    df: pd.DataFrame, mapping: dict[str, str]
+) -> tuple[pd.DataFrame, dict[str, str], int]:
+    if (
+        _DATE_SOURCE_COLUMN not in df.columns
+        and _DATE_ORIGINAL_COLUMN not in df.columns
+    ):
+        return df, mapping, 0
+    if _DATE_SOURCE_COLUMN in df.columns and _DATE_ORIGINAL_COLUMN in df.columns:
+        raise ValueError(
+            "Ambiguous date columns: fecha and fecha_original already exist."
+        )
+
+    frame = df.copy()
+    if _DATE_SOURCE_COLUMN in frame.columns:
+        frame = frame.rename(columns={_DATE_SOURCE_COLUMN: _DATE_ORIGINAL_COLUMN})
+        mapping = {
+            raw: (
+                _DATE_ORIGINAL_COLUMN
+                if normalized == _DATE_SOURCE_COLUMN
+                else normalized
+            )
+            for raw, normalized in mapping.items()
+        }
+
+    original = pd.to_datetime(frame[_DATE_ORIGINAL_COLUMN], errors="coerce", utc=True)
+    original = original.dt.tz_convert(None)
+    frame[_DATE_ORIGINAL_COLUMN] = original
+    frame[_DATE_SOURCE_COLUMN] = original.dt.to_period("M").dt.to_timestamp()
+    frame, dropped_rows = _drop_trailing_blank_rows_pandas(frame)
+    mapping.setdefault(_DATE_SOURCE_COLUMN, _DATE_SOURCE_COLUMN)
+    if _DATE_ORIGINAL_COLUMN not in mapping.values():
+        mapping[_DATE_ORIGINAL_COLUMN] = _DATE_ORIGINAL_COLUMN
+    return frame, mapping, dropped_rows
+
+
+def _normalize_fecha_polars(
+    df: pl.DataFrame, mapping: dict[str, str]
+) -> tuple[pl.DataFrame, dict[str, str], int]:
+    if (
+        _DATE_SOURCE_COLUMN not in df.columns
+        and _DATE_ORIGINAL_COLUMN not in df.columns
+    ):
+        return df, mapping, 0
+    if _DATE_SOURCE_COLUMN in df.columns and _DATE_ORIGINAL_COLUMN in df.columns:
+        raise ValueError(
+            "Ambiguous date columns: fecha and fecha_original already exist."
+        )
+
+    frame = df.clone()
+    if _DATE_SOURCE_COLUMN in frame.columns:
+        frame = frame.rename({_DATE_SOURCE_COLUMN: _DATE_ORIGINAL_COLUMN})
+        mapping = {
+            raw: (
+                _DATE_ORIGINAL_COLUMN
+                if normalized == _DATE_SOURCE_COLUMN
+                else normalized
+            )
+            for raw, normalized in mapping.items()
+        }
+
+    frame = _ensure_polars_datetime(frame, _DATE_ORIGINAL_COLUMN)
+    frame = frame.with_columns(
+        pl.col(_DATE_ORIGINAL_COLUMN).dt.truncate("1mo").alias(_DATE_SOURCE_COLUMN)
+    )
+    frame, dropped_rows = _drop_trailing_blank_rows_polars(frame)
+    mapping.setdefault(_DATE_SOURCE_COLUMN, _DATE_SOURCE_COLUMN)
+    if _DATE_ORIGINAL_COLUMN not in mapping.values():
+        mapping[_DATE_ORIGINAL_COLUMN] = _DATE_ORIGINAL_COLUMN
+    return frame, mapping, dropped_rows
+
+
+def _ensure_polars_datetime(df: pl.DataFrame, column: str) -> pl.DataFrame:
+    dtype = df.schema.get(column)
+    if dtype is None:
+        return df
+    if dtype == pl.Datetime:
+        return df
+    if dtype == pl.Date:
+        return df.with_columns(pl.col(column).cast(pl.Datetime).alias(column))
+    if dtype == pl.Utf8:
+        return df.with_columns(
+            pl.col(column).str.strptime(pl.Datetime, strict=False).alias(column)
+        )
+    return df.with_columns(pl.col(column).cast(pl.Datetime, strict=False).alias(column))
+
+
+def _drop_trailing_blank_rows_pandas(df: pd.DataFrame) -> tuple[pd.DataFrame, int]:
+    if df.empty:
+        return df, 0
+    trimmed = df.copy()
+    dropped = 0
+    while not trimmed.empty and _row_is_blank_pandas(trimmed.iloc[-1]):
+        trimmed = trimmed.iloc[:-1].copy()
+        dropped += 1
+    return trimmed, dropped
+
+
+def _drop_trailing_blank_rows_polars(df: pl.DataFrame) -> tuple[pl.DataFrame, int]:
+    if df.is_empty():
+        return df, 0
+    trimmed = df.clone()
+    dropped = 0
+    while not trimmed.is_empty() and _row_is_blank_polars(trimmed.row(-1, named=True)):
+        trimmed = trimmed.head(trimmed.height - 1)
+        dropped += 1
+    return trimmed, dropped
+
+
+def _row_is_blank_pandas(row: pd.Series) -> bool:
+    if not _is_blank_value(row.get(_DATE_ORIGINAL_COLUMN)):
+        return False
+    for column, value in row.items():
+        if column == _DATE_ORIGINAL_COLUMN:
+            continue
+        if not _is_blank_value(value):
+            return False
+    return True
+
+
+def _row_is_blank_polars(row: dict[str, Any]) -> bool:
+    if not _is_blank_value(row.get(_DATE_ORIGINAL_COLUMN)):
+        return False
+    for column, value in row.items():
+        if column == _DATE_ORIGINAL_COLUMN:
+            continue
+        if not _is_blank_value(value):
+            return False
+    return True
+
+
+def _is_blank_value(value: Any) -> bool:
+    if value is None:
+        return True
+    if isinstance(value, str):
+        return not value.strip()
+    try:
+        return bool(pd.isna(value))
+    except Exception:
+        return False
