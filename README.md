@@ -9,7 +9,8 @@ Este proyecto convierte planillas XLSX dispersas en salidas reproducibles y orie
 - descubrimiento automático de archivos publicados, incluso cuando cambian los nombres o URLs
 - descarga trazable de los originales
 - parseo de libros de Excel con metadatos de estructura
-- normalización de tablas con columnas consistentes
+- normalización de tablas con columnas consistentes, sin acentos y en snake_case
+- preservación de la fecha original y creación de una fecha mensual canónica al inicio de mes
 - almacenamiento en Parquet y, de forma opcional, Delta Lake
 - metadatos de ingesta para auditoría y repetibilidad
 
