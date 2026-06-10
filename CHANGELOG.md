@@ -51,6 +51,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Removed unused imports (`pytest`, `hashlib`) from test files
 - Fixed linting errors (F401, F841) in test files
 
+## [0.1.3] - 2025-06-10
+
+### Changed
+- **Phase 3-4: Cleanup and Documentation**
+  - Removed unused `pydantic-settings` dependency from `pyproject.toml`
+  - Updated `.gitignore` to ignore entire `data/` directory (XLSX, Parquet, metadata)
+  - Added metadata JSON format documentation in README.md
+    - Documented fetch.json, parse.json, build.json, run.json structure
+    - Added sample formats for parse.json and build.json
+  - Updated pyproject.toml description from placeholder to real description
+
 ## [0.1.1] - Previous Release
 
 ### Added
