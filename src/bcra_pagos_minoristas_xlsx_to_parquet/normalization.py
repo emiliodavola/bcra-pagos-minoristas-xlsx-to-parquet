@@ -10,6 +10,7 @@ import pandas as pd
 import polars as pl
 
 from .logging_utils import get_logger, log_event
+from .utils import is_blank
 from .models import NormalizedDataset, ParsedDataset
 
 _LOGGER = get_logger(__name__)
@@ -289,24 +290,13 @@ def _drop_trailing_blank_rows_polars(df: pl.DataFrame) -> tuple[pl.DataFrame, in
 
 def _row_is_blank_pandas(row: pd.Series) -> bool:
     for _, value in row.items():
-        if not _is_blank_value(value):
+        if not is_blank(value):
             return False
     return True
 
 
 def _row_is_blank_polars(row: dict[str, Any]) -> bool:
     for value in row.values():
-        if not _is_blank_value(value):
+        if not is_blank(value):
             return False
     return True
-
-
-def _is_blank_value(value: Any) -> bool:
-    if value is None:
-        return True
-    if isinstance(value, str):
-        return not value.strip()
-    try:
-        return bool(pd.isna(value))
-    except Exception:
-        return False

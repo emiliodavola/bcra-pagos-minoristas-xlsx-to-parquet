@@ -9,6 +9,7 @@ import polars as pl
 import pyarrow as pa
 
 from .logging_utils import get_logger, log_event
+from .utils import is_blank
 from .models import ParsedDataset, ParsingMetadata
 
 _LOGGER = get_logger(__name__)
@@ -233,19 +234,8 @@ def _stringify_value(value: object) -> str | None:
 
 
 def _row_is_sparse_noise(row: pd.Series) -> bool:
-    non_empty = [value for value in row.tolist() if not _is_blank_value(value)]
+    non_empty = [value for value in row.tolist() if not is_blank(value)]
     return len(non_empty) <= 1
-
-
-def _is_blank_value(value: Any) -> bool:
-    if value is None:
-        return True
-    if isinstance(value, str):
-        return not value.strip()
-    try:
-        return bool(pd.isna(value))
-    except Exception:
-        return False
 
 
 def _is_data_like_value(value: Any) -> bool:
