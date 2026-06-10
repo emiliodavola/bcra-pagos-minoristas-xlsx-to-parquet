@@ -22,11 +22,13 @@ from bcra_pagos_minoristas_xlsx_to_parquet.pipeline import (
 
 def _make_sample_xlsx(path: Path) -> None:
     """Create a minimal sample XLSX file for integration tests."""
-    df = pd.DataFrame({
-        "Concepto": ["Cheques", "Transferencias"],
-        "Cantidad": [100, 200],
-        "Monto": [10000.50, 25000.75],
-    })
+    df = pd.DataFrame(
+        {
+            "Concepto": ["Cheques", "Transferencias"],
+            "Cantidad": [100, 200],
+            "Monto": [10000.50, 25000.75],
+        }
+    )
     df.to_excel(path, header=False, index=False)
 
 
@@ -142,10 +144,12 @@ class TestFullPipelineIntegration:
         # Create XLSX content in memory
         xlsx_bytes = BytesIO()
         with pd.ExcelWriter(xlsx_bytes, engine="openpyxl") as writer:
-            df = pd.DataFrame({
-                "A": [1, 2],
-                "B": [3, 4],
-            })
+            df = pd.DataFrame(
+                {
+                    "A": [1, 2],
+                    "B": [3, 4],
+                }
+            )
             df.to_excel(writer, sheet_name="Data", header=False, index=False)
         xlsx_bytes.seek(0)
         xlsx_content = xlsx_bytes.read()
@@ -212,9 +216,7 @@ class TestEdgeCasesPipeline:
         </html>
         """
 
-        transport = httpx.MockTransport(
-            lambda request: httpx.Response(200, text=html)
-        )
+        transport = httpx.MockTransport(lambda request: httpx.Response(200, text=html))
 
         config = AppConfig()
         client = httpx.Client(transport=transport)
@@ -256,9 +258,7 @@ class TestEdgeCasesPipeline:
         """Verify download raises when SHA-256 does not match."""
         xlsx_bytes = BytesIO()
         with pd.ExcelWriter(xlsx_bytes, engine="openpyxl") as writer:
-            pd.DataFrame({"A": [1]}).to_excel(
-                writer, header=False, index=False
-            )
+            pd.DataFrame({"A": [1]}).to_excel(writer, header=False, index=False)
         xlsx_bytes.seek(0)
         xlsx_content = xlsx_bytes.read()
 
@@ -272,19 +272,19 @@ class TestEdgeCasesPipeline:
 
         client = httpx.Client(transport=transport)
         try:
-           download_dir = tmp_path / "raw"
-           download_dir.mkdir()
+            download_dir = tmp_path / "raw"
+            download_dir.mkdir()
 
-           request = DownloadRequest(
-               url="https://example.com/test.xlsx",
-               output_dir=download_dir,
-               expected_sha256=wrong_sha,
+            request = DownloadRequest(
+                url="https://example.com/test.xlsx",
+                output_dir=download_dir,
+                expected_sha256=wrong_sha,
             )
             # Should fail because checksum doesn't match
-           with pytest.raises((ValueError, Exception)):
-               download_file(request, client=client)
+            with pytest.raises((ValueError, Exception)):
+                download_file(request, client=client)
         finally:
-           client.close()
+            client.close()
 
     def test_run_build_empty_dataframe(self, tmp_path) -> None:
         """Verify build handles workbook with no data rows."""
@@ -295,9 +295,7 @@ class TestEdgeCasesPipeline:
 
         # Create empty XLSX (only headers, no data)
         path = download_dir / "empty.xlsx"
-        pd.DataFrame({"A": [], "B": []}).to_excel(
-            path, header=False, index=False
-        )
+        pd.DataFrame({"A": [], "B": []}).to_excel(path, header=False, index=False)
 
         config = AppConfig(
             download={"output_dir": download_dir},
@@ -347,9 +345,7 @@ class TestEdgeCasesPipeline:
         </html>
         """
 
-        transport = httpx.MockTransport(
-            lambda request: httpx.Response(200, text=html)
-        )
+        transport = httpx.MockTransport(lambda request: httpx.Response(200, text=html))
 
         config = AppConfig()
         client = httpx.Client(transport=transport)
