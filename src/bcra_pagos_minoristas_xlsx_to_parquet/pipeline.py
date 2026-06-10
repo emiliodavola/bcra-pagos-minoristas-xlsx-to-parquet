@@ -36,13 +36,22 @@ def run_fetch(config: AppConfig, *, client: httpx.Client | None = None) -> dict:
             url=candidate.url,
             output_dir=config.download.output_dir,
         )
-        download_result = download_file(
-            download_request,
-            client=client,
-            retries=config.download.retries,
-            timeout_seconds=config.download.timeout_seconds,
-        )
-        downloads.append(download_result)
+        try:
+            download_result = download_file(
+                download_request,
+                client=client,
+                retries=config.download.retries,
+                timeout_seconds=config.download.timeout_seconds,
+            )
+            downloads.append(download_result)
+        except Exception as exc:
+            log_event(
+               _LOGGER,
+               "download.failed",
+               url=candidate.url,
+               filename=candidate.filename,
+               error=str(exc),
+            )
     return {"discovery": discovery_result, "downloads": downloads}
 
 
@@ -80,11 +89,16 @@ def run_all(config: AppConfig, *, client: httpx.Client | None = None) -> dict:
     discovery = fetch_result["discovery"]
     candidates = _select_candidates(config, discovery)
     downloads = fetch_result["downloads"]
-    if len(downloads) != len(candidates):
-        raise ValueError("Download count does not match discovered candidates.")
+    if len(downloads) == 0:
+        raise ValueError("No files downloaded successfully.")
 
     results: list[dict] = []
-    for candidate, download_result in zip(candidates, downloads):
+    download_idx = 0
+    for candidate in candidates:
+        if download_idx >= len(downloads):
+            break
+        download_result = downloads[download_idx]
+        download_idx += 1
         parsed = run_parse(config, input_path=download_result.path)
         normalized = normalize_dataset(parsed, aliases=config.normalization.aliases)
         normalized = _add_ingestion_metadata(
