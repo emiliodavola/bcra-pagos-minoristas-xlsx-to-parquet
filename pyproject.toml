@@ -14,7 +14,6 @@ dependencies = [
     "polars>=1.41.0",
     "pyarrow>=24.0.0",
     "pydantic>=2.13.4",
-    "pydantic-settings>=2.14.1",
     "tomli>=2.4.1",
     "typer>=0.25.1",
 ]

@@ -114,6 +114,57 @@ Comandos:
 - data/curated: datos listos para consulta analítica.
 - data/metadata: JSON con metadatos de discovery, download, parse, build y run.
 
+## Metadatos de ingesta
+
+El pipeline genera archivos JSON en `data/metadata/` que documentan la estructura de cada dataset procesado. Estos archivos son **generables** (siempre se pueden regenerar desde los XLSX) por lo que **no se versionan en git**.
+
+### Estructura de archivos
+
+| Archivo | Contenido |
+|---------|-----------|
+| `fetch.json` | Resultados del discovery y las descargas |
+| `parse.json` | Metadatos de parseo (hojas, filas, columnas, tipos) |
+| `build.json` | Dataset normalizado + storage paths |
+| `run.json` | Pipeline completo (discovery → parse → build) |
+
+### Formato de `parse.json`
+
+```json
+{
+  "sheet_names": ["Cheques", "Transferencias"],
+  "row_counts": { "Cheques": 100, "Transferencias": 200 },
+  "column_counts": { "Cheques": 5, "Transferencias": 8 },
+  "inferred_types": {
+    "Cheques": { "Fecha": "datetime64[ns]", "Cantidad": "int64" }
+  },
+  "header_row_index": { "Cheques": 0 }
+}
+```
+
+### Formato de `build.json`
+
+```json
+{
+  "normalized": {
+    "sheet_names": ["Cheques"],
+    "schema": {
+      "Cheques": { "concepto": "str", "cantidad": "int64" }
+    },
+    "column_mapping": { ... },
+    "row_counts": { "Cheques": 95 },
+    "dropped_rows": { "Cheques": 5 },
+    "schema_report": { ... }
+  },
+  "storage": {
+    "paths": {
+      "Cheques": "data/curated/Cheques/schema=xxxx/"
+    },
+    "format": "parquet",
+    "row_counts": { "Cheques": 95 }
+  }
+}
+```
+
 ## Pruebas
 
 Las pruebas deben ser deterministas y no depender de endpoints en vivo.
