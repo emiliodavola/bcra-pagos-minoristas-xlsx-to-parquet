@@ -65,7 +65,12 @@ def discover_files(
 
     candidates = _dedupe_candidates(candidates)
     if not candidates:
-        raise ValueError("No matching files found for discovery request.")
+        raise ValueError(
+            "No matching XLSX files found for discovery request. "
+            f"Source URL: {request.source_url} | Match rules: {list(request.match_rules)}. "
+            "Note: the BCRA website may have changed its structure. "
+            "Please check https://www.bcra.gob.ar/informe-de-pagos-minoristas/ for updates."
+        )
 
     selected = _select_candidate(candidates)
     selection_reason = _selection_reason(selected)

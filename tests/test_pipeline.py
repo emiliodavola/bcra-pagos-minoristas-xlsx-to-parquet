@@ -221,7 +221,7 @@ class TestEdgeCasesPipeline:
         config = AppConfig()
         client = httpx.Client(transport=transport)
         try:
-            with pytest.raises(ValueError, match="No matching files"):
+            with pytest.raises(ValueError, match="No matching.*files"):
                 run_fetch(config, client=client)
         finally:
             client.close()
@@ -350,7 +350,7 @@ class TestEdgeCasesPipeline:
         config = AppConfig()
         client = httpx.Client(transport=transport)
         try:
-            with pytest.raises(ValueError, match="No matching files"):
+            with pytest.raises(ValueError, match="No matching.*files"):
                 run_fetch(config, client=client)
         finally:
             client.close()
