@@ -59,6 +59,10 @@ def discover_files(
                     request.match_rules,
                 )
             )
+
+        # Fallback: if no XLSX found on main page, try BCRA search API
+        if not candidates and "bcra.gob.ar" in request.source_url:
+            candidates.extend(_discover_via_api(request, client))
     finally:
         if close_client:
             client.close()
@@ -68,7 +72,7 @@ def discover_files(
         raise ValueError(
             "No matching XLSX files found for discovery request. "
             f"Source URL: {request.source_url} | Match rules: {list(request.match_rules)}. "
-            "Note: the BCRA website may have changed its structure. "
+            "Note: the BCRA website structure may have changed. "
             "Please check https://www.bcra.gob.ar/informe-de-pagos-minoristas/ for updates."
         )
 
@@ -125,6 +129,58 @@ def _publication_links(source_url: str, links: Iterable[str]) -> list[str]:
         if "/publicaciones/" in urlparse(resolved).path:
             publications.append(resolved)
     return sorted(set(publications))
+
+
+def _discover_via_api(
+    request: DiscoveryRequest, client: httpx.Client
+) -> list[DiscoveredFile]:
+    """Fallback discovery via BCRA search API when page scraping yields no XLSX files."""
+    candidates: list[DiscoveredFile] = []
+
+    # Try to find publication pages via the BCRA search API
+    api_url = "https://svc-index.bcra.gob.ar"
+    try:
+        response = client.get(
+            f"{api_url}/search/?q=mensual+pagos+minoristas",
+            headers={"Accept": "application/json"},
+            timeout=30,
+        )
+
+        if response.status_code == 200:
+            data = response.json()
+
+            for hit in data.get("hits", {}).get("hits", [])[:50]:
+                src = hit.get("_source", {})
+                permalink = src.get("permalink", "")
+
+                # Only consider publication pages (not events or other types)
+                if "publicaciones" not in permalink:
+                    continue
+
+                # Fetch this publication page to extract XLSX links
+                try:
+                    pub_response = client.get(permalink, timeout=30)
+                    if pub_response.status_code == 200:
+                        pub_collector = _LinkCollector()
+                        pub_collector.feed(pub_response.text)
+
+                        for link in pub_collector.links:
+                            if ".xlsx" in link.lower():
+                                resolved_url = urljoin(permalink, link)
+                                filename = Path(urlparse(resolved_url).path).name
+                                candidates.append(
+                                    DiscoveredFile(
+                                        url=resolved_url,
+                                        filename=filename or "pagos-minoristas",
+                                        version=None,
+                                    )
+                                )
+                except Exception:
+                    continue
+    except Exception:
+        pass
+
+    return candidates
 
 
 def _dedupe_candidates(candidates: list[DiscoveredFile]) -> list[DiscoveredFile]:
