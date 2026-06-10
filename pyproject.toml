@@ -1,7 +1,7 @@
 [project]
 name = "bcra-pagos-minoristas-xlsx-to-parquet"
 version = "0.1.0"
-description = "Add your description here"
+description = "ETL pipeline to discover, download, parse, normalize and store BCRA minor payment data from XLSX to Parquet"
 readme = "README.md"
 authors = [
     { name = "Emilio Dávola", email = "emidavola@gmail.com" }
