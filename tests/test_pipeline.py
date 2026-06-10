@@ -1,7 +1,5 @@
 """Integration tests for pipeline stages (run_fetch, run_build, run_all)."""
 
-import hashlib
-from datetime import datetime
 from io import BytesIO
 from pathlib import Path
 
@@ -272,22 +270,21 @@ class TestEdgeCasesPipeline:
 
         transport = httpx.MockTransport(handler)
 
-        config = AppConfig()
         client = httpx.Client(transport=transport)
         try:
-            download_dir = tmp_path / "raw"
-            download_dir.mkdir()
+           download_dir = tmp_path / "raw"
+           download_dir.mkdir()
 
-            request = DownloadRequest(
-                url="https://example.com/test.xlsx",
-                output_dir=download_dir,
-                expected_sha256=wrong_sha,
+           request = DownloadRequest(
+               url="https://example.com/test.xlsx",
+               output_dir=download_dir,
+               expected_sha256=wrong_sha,
             )
             # Should fail because checksum doesn't match
-            with pytest.raises((ValueError, Exception)):
-                download_file(request, client=client)
+           with pytest.raises((ValueError, Exception)):
+               download_file(request, client=client)
         finally:
-            client.close()
+           client.close()
 
     def test_run_build_empty_dataframe(self, tmp_path) -> None:
         """Verify build handles workbook with no data rows."""

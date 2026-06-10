@@ -1,7 +1,6 @@
 """Parser tests for the Polars engine."""
 
 import pandas as pd
-import pytest
 
 from bcra_pagos_minoristas_xlsx_to_parquet.parser import parse_workbook
 
