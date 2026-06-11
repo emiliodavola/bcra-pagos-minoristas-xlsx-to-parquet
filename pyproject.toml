@@ -1,7 +1,7 @@
 [project]
 name = "bcra-pagos-minoristas-xlsx-to-parquet"
 version = "0.1.0"
-description = "Add your description here"
+description = "ETL pipeline to discover, download, parse, normalize and store BCRA minor payment data from XLSX to Parquet"
 readme = "README.md"
 authors = [
     { name = "Emilio Dávola", email = "emidavola@gmail.com" }
@@ -14,7 +14,6 @@ dependencies = [
     "polars>=1.41.0",
     "pyarrow>=24.0.0",
     "pydantic>=2.13.4",
-    "pydantic-settings>=2.14.1",
     "tomli>=2.4.1",
     "typer>=0.25.1",
 ]
