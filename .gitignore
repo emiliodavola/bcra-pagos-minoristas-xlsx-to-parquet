@@ -100,5 +100,6 @@ celerybeat-schedule
 # Node
 node_modules/
 
-# Data raw (ignore large raw inputs by default)
+# Ignorar toda la carpeta data/ (XLSX originales, Parquet, metadata)
 data/
+!important-data/.gitkeep

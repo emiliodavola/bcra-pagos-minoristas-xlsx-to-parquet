@@ -1,5 +1,5 @@
 [source]
-url = "https://www.bcra.gob.ar/informe-de-pagos-minoristas"
+url = "https://www.bcra.gob.ar/informe-de-pagos-minoristas/"
 match_rules = ["\\.xlsx$"]
 mode = "all"
 
