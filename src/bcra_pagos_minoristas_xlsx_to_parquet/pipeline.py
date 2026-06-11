@@ -46,11 +46,11 @@ def run_fetch(config: AppConfig, *, client: httpx.Client | None = None) -> dict:
             downloads.append(download_result)
         except Exception as exc:
             log_event(
-               _LOGGER,
-               "download.failed",
-               url=candidate.url,
-               filename=candidate.filename,
-               error=str(exc),
+                _LOGGER,
+                "download.failed",
+                url=candidate.url,
+                filename=candidate.filename,
+                error=str(exc),
             )
     return {"discovery": discovery_result, "downloads": downloads}
 
