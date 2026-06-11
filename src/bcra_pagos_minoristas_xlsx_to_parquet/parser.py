@@ -9,8 +9,8 @@ import polars as pl
 import pyarrow as pa
 
 from .logging_utils import get_logger, log_event
-from .utils import is_blank
 from .models import ParsedDataset, ParsingMetadata
+from .utils import is_blank
 
 _LOGGER = get_logger(__name__)
 

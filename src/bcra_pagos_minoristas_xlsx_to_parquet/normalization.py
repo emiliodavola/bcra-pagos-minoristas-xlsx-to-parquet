@@ -10,8 +10,8 @@ import pandas as pd
 import polars as pl
 
 from .logging_utils import get_logger, log_event
-from .utils import is_blank
 from .models import NormalizedDataset, ParsedDataset
+from .utils import is_blank
 
 _LOGGER = get_logger(__name__)
 _DATE_SOURCE_COLUMN = "fecha"
